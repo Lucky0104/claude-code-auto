@@ -1,0 +1,42 @@
+# Local development stack for the Crysta IVF auto-comment bot.
+#
+# Usage:
+#   1) cp backend/.env.example backend/.env     # fill in Meta creds + secrets
+#   2) docker compose up --build
+#
+# Backend API: http://localhost:8001/api   •   Frontend (dev): http://localhost:3000
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports: ["27017:27017"]
+    volumes: ["mongo_data:/data/db"]
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      # Override so the container reaches the mongo service (not localhost).
+      MONGO_URL: mongodb://mongo:27017
+    depends_on: [mongo]
+    ports: ["8001:8001"]
+
+  # Optional dev frontend (CRA / craco). Requires network access to install
+  # dependencies on first run. For production, build a static bundle with
+  # `yarn build` and serve it behind your web server / CDN instead.
+  frontend:
+    image: node:22-bookworm-slim
+    working_dir: /app
+    command: sh -c "yarn install && yarn start"
+    environment:
+      REACT_APP_BACKEND_URL: http://localhost:8001
+      HOST: 0.0.0.0
+      WDS_SOCKET_PORT: "0"
+    volumes:
+      - ./frontend:/app
+    ports: ["3000:3000"]
+    depends_on: [backend]
+
+volumes:
+  mongo_data:

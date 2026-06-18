@@ -1,0 +1,17 @@
+name = "crysta-queue-worker"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# Consumer: process comment jobs. Failed messages retry with backoff, then DLQ.
+[[queues.consumers]]
+queue = "crysta-comments"
+max_batch_size = 10
+max_batch_timeout = 5
+max_retries = 5
+dead_letter_queue = "crysta-comments-dlq"
+
+# Set secret with `wrangler secret put SUPABASE_SERVICE_ROLE_KEY`.
+[vars]
+SUPABASE_URL = "https://YOUR-PROJECT.supabase.co"
+FB_GRAPH_VERSION = "v21.0"

@@ -1,0 +1,5 @@
+# Local secrets for `wrangler dev` (copy to .dev.vars). In production use
+# `wrangler secret put <NAME>`.
+FB_APP_SECRET=
+FB_WEBHOOK_VERIFY_TOKEN=choose-a-verify-token
+SUPABASE_SERVICE_ROLE_KEY=

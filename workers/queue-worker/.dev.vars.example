@@ -1,0 +1,2 @@
+# Local secrets for `wrangler dev` (copy to .dev.vars).
+SUPABASE_SERVICE_ROLE_KEY=

@@ -1,0 +1,14 @@
+name = "crysta-webhook-worker"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# Producer: enqueue comment jobs for the queue-worker.
+[[queues.producers]]
+binding = "QUEUE"
+queue = "crysta-comments"
+
+# Non-secret vars. Set secrets with `wrangler secret put`:
+#   FB_APP_SECRET, FB_WEBHOOK_VERIFY_TOKEN, SUPABASE_SERVICE_ROLE_KEY
+[vars]
+SUPABASE_URL = "https://YOUR-PROJECT.supabase.co"

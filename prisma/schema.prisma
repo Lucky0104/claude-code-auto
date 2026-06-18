@@ -1,0 +1,368 @@
+// Prisma schema — source of truth for the application's typed DB access.
+// Tables are created via `prisma migrate deploy`. Supabase-layer objects
+// (RLS policies, triggers, helper functions, auth FK, seed) live under
+// /supabase and are applied on top. See docs/03-deployment.md.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+enum Role {
+  OWNER
+  ADMIN
+  MANAGER
+  AGENT
+  VIEWER
+}
+
+enum CommentStatus {
+  PENDING
+  REPLIED
+  FAILED
+  SKIPPED
+}
+
+enum WebhookStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  FAILED
+  DEAD_LETTER
+}
+
+// ---------------------------------------------------------------------------
+// Core tenancy
+// ---------------------------------------------------------------------------
+model Tenant {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  members                 TeamMember[]
+  pages                   FacebookPage[]
+  adAccounts              AdAccount[]
+  campaigns               Campaign[]
+  monitoredPosts          MonitoredPost[]
+  commentLogs             CommentLog[]
+  auditLogs               AuditLog[]
+  apiLogs                 ApiLog[]
+  webhookEvents           WebhookEvent[]
+  notifications           Notification[]
+  notificationPreferences NotificationPreference[]
+  settings                Setting?
+
+  @@map("tenants")
+}
+
+model User {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authUserId    String   @unique @map("auth_user_id") @db.Uuid
+  email         String
+  fullName      String?  @map("full_name")
+  avatarUrl     String?  @map("avatar_url")
+  facebookUserId String? @map("facebook_user_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  memberships             TeamMember[]
+  facebookIdentity        FacebookIdentity?
+  notifications           Notification[]
+  notificationPreferences NotificationPreference[]
+
+  @@map("users")
+}
+
+// Server-only storage of Facebook/Meta tokens. RLS denies all client access;
+// only the service role (server actions / workers) reads this table.
+model FacebookIdentity {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String    @unique @map("user_id") @db.Uuid
+  facebookUserId  String    @map("facebook_user_id")
+  accessToken     String    @map("access_token")
+  refreshToken    String?   @map("refresh_token")
+  tokenExpiresAt  DateTime? @map("token_expires_at")
+  scopes          String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("facebook_identities")
+}
+
+model TeamMember {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  role      Role     @default(VIEWER)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@index([userId])
+  @@map("team_members")
+}
+
+// ---------------------------------------------------------------------------
+// Meta assets
+// ---------------------------------------------------------------------------
+model FacebookPage {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  pageId      String   @map("page_id")
+  name        String
+  category    String?
+  picture     String?
+  fanCount    Int?     @map("fan_count")
+  accessToken String?  @map("access_token") // server-only
+  isActive    Boolean  @default(true) @map("is_active")
+  connectedAt DateTime @default(now()) @map("connected_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, pageId])
+  @@index([tenantId])
+  @@map("facebook_pages")
+}
+
+model AdAccount {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  adAccountId   String   @map("ad_account_id") // numeric Meta id, no act_ prefix
+  name          String?
+  accountStatus Int?     @map("account_status")
+  isActive      Boolean  @default(false) @map("is_active")
+  syncedAt      DateTime @default(now()) @map("synced_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, adAccountId])
+  @@index([tenantId])
+  @@map("ad_accounts")
+}
+
+// ---------------------------------------------------------------------------
+// Campaigns + centre config
+// ---------------------------------------------------------------------------
+model Campaign {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  metaCampaignId String    @map("meta_campaign_id")
+  adAccountId    String?   @map("ad_account_id")
+  name           String
+  status         String?
+  objective      String?
+  dailyBudget    String?   @map("daily_budget")
+  lifetimeBudget String?   @map("lifetime_budget")
+  startTime      String?   @map("start_time")
+  stopTime       String?   @map("stop_time")
+  metaCreatedTime String?  @map("meta_created_time")
+  metaSyncedAt   DateTime? @map("meta_synced_at")
+
+  // Centre configuration
+  centerName    String?  @map("center_name")
+  doctorName    String?  @map("doctor_name")
+  address       String?
+  phone         String?
+  whatsapp      String?
+  replyTemplate String?  @map("reply_template")
+  isConfigured  Boolean  @default(false) @map("is_configured")
+  configuredAt  DateTime? @map("configured_at")
+  configuredBy  String?  @map("configured_by") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  monitoredPosts MonitoredPost[]
+  commentLogs    CommentLog[]
+
+  @@unique([tenantId, metaCampaignId])
+  @@index([tenantId])
+  @@index([tenantId, metaSyncedAt])
+  @@map("campaigns")
+}
+
+model MonitoredPost {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String   @map("tenant_id") @db.Uuid
+  campaignId         String   @map("campaign_id") @db.Uuid
+  instagramPostId    String   @map("instagram_post_id")
+  instagramPermalink String?  @map("instagram_permalink")
+  mediaType          String?  @map("media_type")
+  thumbnailUrl       String?  @map("thumbnail_url")
+  isActive           Boolean  @default(true) @map("is_active")
+  activatedAt        DateTime? @map("activated_at")
+  activatedBy        String?  @map("activated_by") @db.Uuid
+  deactivatedAt      DateTime? @map("deactivated_at")
+  deactivatedBy      String?  @map("deactivated_by") @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, instagramPostId])
+  @@index([tenantId])
+  @@index([campaignId])
+  @@map("monitored_posts")
+}
+
+model CommentLog {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String        @map("tenant_id") @db.Uuid
+  campaignId       String?       @map("campaign_id") @db.Uuid
+  commentId        String        @unique @map("comment_id")
+  instagramPostId  String?       @map("instagram_post_id")
+  commenterId      String?       @map("commenter_id")
+  commenterName    String?       @map("commenter_name")
+  commentText      String?       @map("comment_text")
+  replyText        String?       @map("reply_text")
+  status           CommentStatus @default(PENDING)
+  replySent        Boolean       @default(false) @map("reply_sent")
+  error            String?
+  repliedAt        DateTime?     @map("replied_at")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @default(now()) @updatedAt @map("updated_at")
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campaign Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, createdAt])
+  @@index([campaignId])
+  @@map("comment_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Webhooks + logging
+// ---------------------------------------------------------------------------
+model WebhookEvent {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String?       @map("tenant_id") @db.Uuid
+  source         String        @default("meta")
+  dedupHash      String        @unique @map("dedup_hash")
+  payload        Json
+  signatureValid Boolean       @default(false) @map("signature_valid")
+  status         WebhookStatus @default(RECEIVED)
+  attempts       Int           @default(0)
+  lastError      String?       @map("last_error")
+  receivedAt     DateTime      @default(now()) @map("received_at")
+  processedAt    DateTime?     @map("processed_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @default(now()) @updatedAt @map("updated_at")
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@map("webhook_events")
+}
+
+model AuditLog {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  action      String
+  targetType  String?  @map("target_type")
+  targetId    String?  @map("target_id")
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@map("audit_logs")
+}
+
+model ApiLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String?  @map("tenant_id") @db.Uuid
+  service    String   @default("meta")
+  method     String?
+  endpoint   String?
+  statusCode Int?     @map("status_code")
+  durationMs Int?     @map("duration_ms")
+  ok         Boolean  @default(true)
+  error      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@map("api_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Settings + notifications
+// ---------------------------------------------------------------------------
+model Setting {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId             String   @unique @map("tenant_id") @db.Uuid
+  autoReplyEnabled     Boolean  @default(true) @map("auto_reply_enabled")
+  timezone             String   @default("UTC")
+  defaultReplyTemplate String?  @map("default_reply_template")
+  data                 Json?
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @default(now()) @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("settings")
+}
+
+model NotificationPreference {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  emailEnabled    Boolean  @default(true) @map("email_enabled")
+  webhookFailures Boolean  @default(true) @map("webhook_failures")
+  replyFailures   Boolean  @default(true) @map("reply_failures")
+  weeklyDigest    Boolean  @default(false) @map("weekly_digest")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@map("notification_preferences")
+}
+
+model Notification {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  userId    String?  @map("user_id") @db.Uuid
+  type      String
+  title     String
+  body      String?
+  read      Boolean  @default(false)
+  data      Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId, read])
+  @@map("notifications")
+}

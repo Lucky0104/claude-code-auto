@@ -86,3 +86,14 @@ android-sdk/
 credentials.json
 *.key
 .credentials
+
+# --- Next.js / monorepo / workers (migration stack) ---
+.next/
+out/
+.turbo/
+.vercel/
+.wrangler/
+.dev.vars
+*.tsbuildinfo
+next-env.d.ts
+apps/web/.env.local

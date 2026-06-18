@@ -1,0 +1,105 @@
+{
+  "theme": "Light",
+  "archetype": "4 (Swiss & High-Contrast)",
+  "emotional_tone": "Authority, clarity, functional beauty, objective, trustworthy",
+  "colors": {
+    "background": "#FFFFFF",
+    "foreground": "#0A0A0B",
+    "card": "#FFFFFF",
+    "card_foreground": "#0A0A0B",
+    "popover": "#FFFFFF",
+    "popover_foreground": "#0A0A0B",
+    "primary": "#002FA7",
+    "primary_foreground": "#FFFFFF",
+    "secondary": "#F4F4F5",
+    "secondary_foreground": "#0A0A0B",
+    "muted": "#F4F4F5",
+    "muted_foreground": "#71717A",
+    "accent": "#F4F4F5",
+    "accent_foreground": "#0A0A0B",
+    "destructive": "#DC2626",
+    "destructive_foreground": "#FFFFFF",
+    "border": "#E4E4E7",
+    "input": "#E4E4E7",
+    "ring": "#002FA7",
+    "chart_palette": [
+      "#002FA7",
+      "#DC2626",
+      "#F59E0B",
+      "#10B981",
+      "#8B5CF6"
+    ]
+  },
+  "typography": {
+    "font_family_headings": "Chivo, sans-serif",
+    "font_family_body": "'IBM Plex Sans', sans-serif",
+    "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tight font-black",
+    "h2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight font-bold",
+    "h3": "text-xl sm:text-2xl tracking-tight font-bold",
+    "h4": "text-lg sm:text-xl font-semibold",
+    "body": "text-base leading-relaxed",
+    "small": "text-sm",
+    "overline": "text-xs uppercase tracking-[0.2em] font-semibold"
+  },
+  "spacing_and_layout": {
+    "grid_mode": "Control Room Grid",
+    "base_grid": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4",
+    "gap": "gap-4 md:gap-6",
+    "container_padding": "p-6 md:p-8",
+    "card_padding": "p-6",
+    "alignment": "Optical alignment, left-align dense content. Override default stretch with align-items: start."
+  },
+  "surfaces_and_borders": {
+    "strategy": "Grid Borders (Technical Look)",
+    "cards": "Flat background, 1px subtle border (border-border), no shadow. Hover: Slight lift (-translate-y-1), subtle shadow (shadow-lg), border color darkens.",
+    "radius": "rounded-none or max 4px (rounded-sm) for a sharp, rigid, functional feel.",
+    "headers": "Solid Background with a hard bottom border."
+  },
+  "components_strategy": {
+    "forms": "Use Shadcn Input, Select, Checkbox.",
+    "tables": "Shadcn Table with dense layout.",
+    "charts": "Shadcn Chart components / Recharts.",
+    "navigation": "Tenant workspace switcher (top nav). Sidebar or top-nav with clear hierarchy.",
+    "buttons": "Sharp edges, solid primary color for main CTA, monochrome outlines for secondary."
+  },
+  "motion_and_interactions": {
+    "hover_states": "ALWAYS explicitly set text color on hover. e.g. hover:bg-slate-900 hover:text-white.",
+    "focus_states": "focus:ring-2 focus:ring-primary focus:outline-none",
+    "transitions": "transition: transform 0.2s ease, opacity 0.2s ease",
+    "animations": "Micro-interactions only. Keep it minimalist."
+  },
+  "media_and_icons": {
+    "icon_library": "@phosphor-icons/react",
+    "images": [
+      {
+        "url": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDF8MHwxfHNlYXJjaHwzfHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMGF2YXRhcnxlbnwwfHx8fDE3ODE2MTUzMjh8MA&ixlib=rb-4.1.0&q=85",
+        "description": "User Avatar 1",
+        "category": "avatars"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDF8MHwxfHNlYXJjaHwyfHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMGF2YXRhcnxlbnwwfHx8fDE3ODE2MTUzMjh8MA&ixlib=rb-4.1.0&q=85",
+        "description": "User Avatar 2",
+        "category": "avatars"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1672750771479-5ea73e9439ce?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxOTF8MHwxfHNlYXJjaHwxfHxidXNpbmVzcyUyMGFic3RyYWN0JTIwYmFja2dyb3VuZHxlbnwwfHx8fDE3ODE2MTUzMjh8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Abstract Background for login/onboarding",
+        "category": "backgrounds"
+      }
+    ]
+  },
+  "accessibility_and_testing": {
+    "testing_attributes": "All interactive and key informational elements MUST include data-testid attribute in kebab-case, role-based format (e.g., data-testid='login-form-submit-button').",
+    "contrast": "Ensure text meets APCA standards. Contrast minimum 4.5:1 for normal text.",
+    "reduced_motion": "MUST respect prefers-reduced-motion."
+  },
+  "instructions_to_main_agent": [
+    "Install required dependencies: yarn add @phosphor-icons/react recharts",
+    "Use Chivo for headings and IBM Plex Sans for body. Configure them in index.html via Google Fonts.",
+    "Use Shadcn UI extensively but override rounded borders to rounded-sm or rounded-none for the Swiss Brutalist look.",
+    "Build a grid-heavy dense dashboard ('Control Room' layout).",
+    "Use monochrome mostly (stark white, greys, blacks) with Klein Blue (#002FA7) strictly for primary actions, Warning Yellow for pending, Red for negative sentiment.",
+    "Implement Facebook OAuth login screen with the provided abstract background.",
+    "Ensure the workspace switcher is in the top nav and uses Shadcn Select or DropdownMenu."
+  ]
+}

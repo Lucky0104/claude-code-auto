@@ -59,6 +59,54 @@ function extractJson(text: string): string {
   return text.slice(start, end + 1);
 }
 
+// ─── Sheet structure mapping ─────────────────────────────────────────────────
+
+export interface SheetCellMap {
+  comment_type: string;
+  keywords: string[];
+  cells: Partial<Record<Language, [number, number][]>>;
+}
+
+/**
+ * Map an arbitrary tenant sheet layout to ORM rules. The model returns only
+ * cell coordinates — reply text is extracted from the grid verbatim by the
+ * caller, so replies are never paraphrased.
+ */
+export async function mapOrmSheetCells(gridPreview: string): Promise<SheetCellMap[]> {
+  const msg = await client().messages.create({
+    model: MODEL,
+    max_tokens: 8000,
+    system:
+      'You map a spreadsheet of social-media reply templates to structured auto-reply rules. ' +
+      'You never rewrite or invent text — you only return coordinates of existing cells. ' +
+      'Reply ONLY with a single valid JSON object, no markdown, no explanation.',
+    messages: [
+      {
+        role: 'user',
+        content:
+          'Below is a spreadsheet. Every non-empty cell is shown as "[row,col] text" (text may be truncated).\n\n' +
+          gridPreview +
+          '\n\nIdentify the distinct reply intents (comment types) and where each reply lives.\n' +
+          'Rules:\n' +
+          '- comment_type: short lowercase snake_case id (e.g. "price", "location", "general").\n' +
+          '- keywords: 3-8 lowercase keywords a commenter might use for that intent.\n' +
+          '- Language codes: en=English, hi=Hindi in Devanagari script, hn=Hinglish (Hindi words in Latin script), bn=Bengali, mr=Marathi. Judge language by the CELL CONTENT, never by column headers.\n' +
+          '- For each type+language pick exactly ONE reply. List multiple coordinates for a language only when one reply is split across consecutive cells (fragments will be joined in order).\n' +
+          '- Skip section notes, headers, empty cells, URLs on their own, and replies containing unfilled placeholders like "<Patient Name>", "___", "(patient name)" or "cityname".\n' +
+          '- Include a "general" type for the generic greeting/fallback reply if one exists.\n' +
+          '- At most 30 rules.\n\n' +
+          'Reply with JSON: {"rules":[{"comment_type":"price","keywords":["cost","price"],"cells":{"en":[[3,1]],"hi":[[3,2]],"hn":[[3,3]]}}]}',
+      },
+    ],
+  });
+
+  const block = msg.content[0];
+  if (block.type !== 'text') throw new Error('Unexpected Claude response type');
+  const parsed = JSON.parse(extractJson(block.text));
+  if (!Array.isArray(parsed.rules)) throw new Error('Claude sheet mapping returned no rules');
+  return parsed.rules as SheetCellMap[];
+}
+
 // ─── Phone footer ────────────────────────────────────────────────────────────
 
 const STATIC_FOOTERS: Partial<Record<Language, string>> = {

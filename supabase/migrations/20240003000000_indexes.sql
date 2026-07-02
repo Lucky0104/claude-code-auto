@@ -1,0 +1,10 @@
+CREATE INDEX idx_comments_org_status ON comments(org_id, status);
+CREATE INDEX idx_comments_org_created ON comments(org_id, created_at DESC);
+CREATE INDEX idx_comments_org_type ON comments(org_id, comment_type);
+CREATE INDEX idx_comments_org_language ON comments(org_id, detected_language);
+CREATE INDEX idx_replies_comment ON replies(comment_id);
+CREATE INDEX idx_replies_org_created ON replies(org_id, created_at DESC);
+CREATE INDEX idx_meta_connections_org_active ON meta_connections(org_id, is_active);
+CREATE INDEX idx_orm_rules_org_type ON orm_rules(org_id, comment_type);
+CREATE INDEX idx_user_orgs_user ON user_organizations(user_id);
+CREATE INDEX idx_user_orgs_org ON user_organizations(org_id);

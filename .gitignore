@@ -1,5 +1,11 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# Turbo cache
+.turbo/
+
+# Chrome extension packed
+*.crx
+
 # IDE and editors
 .idea/
 .vscode/
@@ -20,7 +26,7 @@ node_modules/
 /coverage
 
 # Next.js
-/.next/
+.next/
 /out/
 next-env.d.ts
 *.tsbuildinfo

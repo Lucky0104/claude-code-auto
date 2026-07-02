@@ -1,14 +1,15 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/env';
 
 /** Supabase client for Server Components and Route Handlers (cookie-based session). */
 export async function createSupabaseServerClient() {
   const cookieStore = await cookies();
 
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    SUPABASE_URL,
+    SUPABASE_ANON_KEY,
     {
       cookies: {
         getAll() {
@@ -32,8 +33,8 @@ export async function createSupabaseServerClient() {
 /** Supabase client authenticated via a Bearer token (used by the Chrome extension). */
 export function createSupabaseTokenClient(accessToken: string) {
   return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    SUPABASE_URL,
+    SUPABASE_ANON_KEY,
     {
       global: { headers: { Authorization: `Bearer ${accessToken}` } },
       auth: { persistSession: false, autoRefreshToken: false },
@@ -44,7 +45,7 @@ export function createSupabaseTokenClient(accessToken: string) {
 /** Service-role client — bypasses RLS. ONLY for cron jobs and trusted server code. */
 export function createSupabaseServiceClient() {
   return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { persistSession: false, autoRefreshToken: false } }
   );

@@ -4,8 +4,48 @@
 import type { CommentStats, Platform } from '@repo/types';
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? '';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? '';
+
+// Supabase URL + anon key (both public values) come from the backend's
+// /api/config at runtime, so the extension never needs a rebuild when the
+// Supabase project changes. VITE_ vars act as a local-dev fallback.
+interface SupabaseConfig {
+  url: string;
+  anonKey: string;
+}
+
+const CONFIG_CACHE_KEY = 'supabase_config';
+const CONFIG_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+async function getSupabaseConfig(): Promise<SupabaseConfig> {
+  const cached = await chrome.storage.local.get(CONFIG_CACHE_KEY);
+  const entry = cached[CONFIG_CACHE_KEY] as
+    | (SupabaseConfig & { fetched_at: number })
+    | undefined;
+  if (entry && Date.now() - entry.fetched_at < CONFIG_TTL_MS) {
+    return { url: entry.url, anonKey: entry.anonKey };
+  }
+
+  try {
+    const res = await fetch(`${BASE}/api/config`);
+    const json = await res.json();
+    if (res.ok && json.configured && json.supabase_url && json.supabase_anon_key) {
+      const config: SupabaseConfig = { url: json.supabase_url, anonKey: json.supabase_anon_key };
+      await chrome.storage.local.set({
+        [CONFIG_CACHE_KEY]: { ...config, fetched_at: Date.now() },
+      });
+      return config;
+    }
+  } catch {
+    // fall through to build-time values
+  }
+
+  const url = import.meta.env.VITE_SUPABASE_URL ?? '';
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY ?? '';
+  if (!url || !anonKey) {
+    throw new Error('Backend is not configured yet — Supabase is not connected.');
+  }
+  return { url, anonKey };
+}
 
 async function getAuth(): Promise<{ token: string | null; orgId: string | null }> {
   const data = await chrome.storage.session.get(['auth_token', 'org_id']);
@@ -28,9 +68,10 @@ async function authedFetch(path: string, init?: RequestInit): Promise<Response> 
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
 export async function loginWithPassword(email: string, password: string): Promise<string> {
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+  const { url, anonKey } = await getSupabaseConfig();
+  const res = await fetch(`${url}/auth/v1/token?grant_type=password`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+    headers: { 'Content-Type': 'application/json', apikey: anonKey },
     body: JSON.stringify({ email, password }),
   });
   const json = await res.json();
@@ -39,9 +80,10 @@ export async function loginWithPassword(email: string, password: string): Promis
 }
 
 export async function sendMagicLink(email: string): Promise<void> {
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/otp`, {
+  const { url, anonKey } = await getSupabaseConfig();
+  const res = await fetch(`${url}/auth/v1/otp`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+    headers: { 'Content-Type': 'application/json', apikey: anonKey },
     body: JSON.stringify({ email, create_user: false }),
   });
   if (!res.ok) {
@@ -51,9 +93,10 @@ export async function sendMagicLink(email: string): Promise<void> {
 }
 
 export async function verifyOtp(email: string, token: string): Promise<string> {
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
+  const { url, anonKey } = await getSupabaseConfig();
+  const res = await fetch(`${url}/auth/v1/verify`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+    headers: { 'Content-Type': 'application/json', apikey: anonKey },
     body: JSON.stringify({ email, token, type: 'email' }),
   });
   const json = await res.json();

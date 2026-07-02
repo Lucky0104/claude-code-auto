@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { isSupabaseConfigured } from '@/lib/env';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -32,6 +33,13 @@ export default function LoginPage() {
         <p className="mb-6 text-sm text-muted-foreground">
           Sign in with a magic link sent to your email.
         </p>
+
+        {!isSupabaseConfigured() && (
+          <div className="mb-4 rounded-md bg-amber-50 p-3 text-xs text-amber-800">
+            Setup incomplete: Supabase environment variables are not set on this
+            deployment yet. Sign-in will work once they are added.
+          </div>
+        )}
 
         {sent ? (
           <div className="rounded-md bg-green-50 p-4 text-sm text-green-800">

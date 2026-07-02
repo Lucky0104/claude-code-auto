@@ -3,7 +3,21 @@
 
 import type { CommentStats, Platform } from '@repo/types';
 
-const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
+// The backend URL has a baked default but can be changed at runtime from the
+// popup (stored in chrome.storage.local), so one build works on any domain.
+const DEFAULT_BASE = import.meta.env.VITE_API_URL ?? 'https://mbs-auto-reply.vercel.app';
+
+export async function getBackendBase(): Promise<string> {
+  const { backend_url } = await chrome.storage.local.get('backend_url');
+  const stored = typeof backend_url === 'string' ? backend_url.trim().replace(/\/+$/, '') : '';
+  return stored || DEFAULT_BASE;
+}
+
+export async function setBackendBase(url: string): Promise<void> {
+  await chrome.storage.local.set({ backend_url: url.trim().replace(/\/+$/, '') });
+  // Supabase config may differ on the new backend — drop the cache.
+  await chrome.storage.local.remove(CONFIG_CACHE_KEY);
+}
 
 // Supabase URL + anon key (both public values) come from the backend's
 // /api/config at runtime, so the extension never needs a rebuild when the
@@ -26,7 +40,8 @@ async function getSupabaseConfig(): Promise<SupabaseConfig> {
   }
 
   try {
-    const res = await fetch(`${BASE}/api/config`);
+    const base = await getBackendBase();
+    const res = await fetch(`${base}/api/config`);
     const json = await res.json();
     if (res.ok && json.configured && json.supabase_url && json.supabase_anon_key) {
       const config: SupabaseConfig = { url: json.supabase_url, anonKey: json.supabase_anon_key };
@@ -55,7 +70,8 @@ async function getAuth(): Promise<{ token: string | null; orgId: string | null }
 async function authedFetch(path: string, init?: RequestInit): Promise<Response> {
   const { token } = await getAuth();
   if (!token) throw new Error('Not logged in');
-  return fetch(`${BASE}${path}`, {
+  const base = await getBackendBase();
+  return fetch(`${base}${path}`, {
     ...init,
     headers: {
       ...init?.headers,

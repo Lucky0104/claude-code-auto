@@ -1,7 +1,8 @@
 import { defineManifest } from '@crxjs/vite-plugin';
 
 // The popup fetches the backend API and Supabase auth directly; both origins
-// need host_permissions so extension requests bypass CORS.
+// need host_permissions so extension requests bypass CORS. *.vercel.app is
+// included because the backend URL is runtime-configurable in the popup.
 const apiOrigin = process.env.VITE_API_URL
   ? `${new URL(process.env.VITE_API_URL).origin}/*`
   : 'http://localhost:3000/*';
@@ -13,7 +14,12 @@ export default defineManifest({
     'Auto-comment on Facebook and Instagram posts managed via Meta Business Suite. By Lucky.',
   version: '1.0.0',
   permissions: ['storage', 'tabs'],
-  host_permissions: ['https://business.facebook.com/*', 'https://*.supabase.co/*', apiOrigin],
+  host_permissions: [
+    'https://business.facebook.com/*',
+    'https://*.supabase.co/*',
+    'https://*.vercel.app/*',
+    apiOrigin,
+  ],
   background: {
     service_worker: 'src/background/service_worker.ts',
     type: 'module',

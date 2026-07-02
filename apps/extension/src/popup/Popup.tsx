@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { CommentStats, Platform } from '@repo/types';
 import {
+  getBackendBase,
   getStats,
   listOrgs,
   loginWithPassword,
   sendMagicLink,
+  setBackendBase,
   triggerSync,
   verifyOtp,
   type OrgSummary,
@@ -250,6 +252,54 @@ function LoginView({ onLoggedIn }: { onLoggedIn: () => void }) {
             className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
           >
             {loading ? 'Verifying…' : 'Verify & sign in'}
+          </button>
+        </form>
+      )}
+
+      <BackendUrlSettings />
+    </div>
+  );
+}
+
+/** Runtime-configurable backend URL, so one extension build works on any domain. */
+function BackendUrlSettings() {
+  const [open, setOpen] = useState(false);
+  const [url, setUrl] = useState('');
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    getBackendBase().then(setUrl);
+  }, []);
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    await setBackendBase(url);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  }
+
+  return (
+    <div className="mt-4 border-t border-gray-100 pt-2">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full text-left text-[11px] text-gray-400 hover:text-gray-600"
+      >
+        {open ? '▾' : '▸'} Backend settings
+      </button>
+      {open && (
+        <form onSubmit={handleSave} className="mt-2 flex gap-1">
+          <input
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://your-app.vercel.app"
+            className="w-full rounded-md border border-gray-300 px-2 py-1 text-[11px]"
+          />
+          <button
+            type="submit"
+            className="rounded-md bg-gray-700 px-2 py-1 text-[11px] font-medium text-white hover:bg-gray-800"
+          >
+            {saved ? '✓' : 'Save'}
           </button>
         </form>
       )}

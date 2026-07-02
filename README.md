@@ -46,9 +46,17 @@ supabase/          SQL migrations (schema, RLS, indexes)
 
 ### 1. Supabase
 
+> **Current status:** the production project `auto-commenter`
+> (`obiecguouefiuuhmmqth`, region `ap-south-1`) is already provisioned with all
+> four migrations applied, and its URL + anon key are the code defaults in
+> `apps/web/src/lib/env.ts` — no Supabase env vars are needed to deploy.
+> Remaining dashboard steps: enable Email OTP and set the Site URL (step 3–4).
+
+For a fresh project:
+
 1. Create a project at [supabase.com](https://supabase.com).
 2. Apply migrations: `supabase link --project-ref <ref> && supabase db push`
-   (or paste the three files in `supabase/migrations/` into the SQL editor in order).
+   (or paste the four files in `supabase/migrations/` into the SQL editor in order).
 3. Auth → Providers → Email: enable **Email OTP** (magic links) and optionally
    passwords (used by the extension login).
 4. Auth → URL Configuration: set Site URL to your Vercel domain and add
@@ -65,40 +73,49 @@ supabase/          SQL migrations (schema, RLS, indexes)
    `instagram_manage_comments`, `business_management`.
 5. Note the App ID and App Secret.
 
-### 3. Google Sheets service account
+### 3. Google Sheet (ORM replies)
 
-1. In Google Cloud Console, create a service account and enable the
-   **Google Sheets API**.
-2. Download the JSON key and set it as `GOOGLE_SERVICE_ACCOUNT_JSON` (single line).
-3. Each tenant shares their ORM sheet with the service account's email
-   (viewer access is enough).
+**No service account needed** if the sheet is shared as
+"Anyone with the link" (viewer or commenter) — the sync reads the public CSV
+export. `GOOGLE_SERVICE_ACCOUNT_JSON` is only required for private sheets
+(share the sheet with the service account's email).
 
-**Sheet format** (row 1 is the header, data from row 2):
+**Sheet layout — two options:**
 
-| comment_type | keywords | reply_en | reply_hi | reply_hn | reply_bn | reply_mr |
-|---|---|---|---|---|---|---|
-| price | price, cost, kitna, kharcha | Our packages start at… | हमारे पैकेज… | Hamare packages… | আমাদের… | आमचे… |
-| location | where, address, kahan | We are located at… | हम यहाँ हैं… | Hum yahan… | … | … |
-| general | | Thanks for reaching out! | संपर्क करने के लिए धन्यवाद! | Thanks for reaching out! | … | … |
+1. **The documented template** (row 1 header must start with `comment_type`):
 
-Include a `general` row — it's the fallback when no type matches.
+   | comment_type | keywords | reply_en | reply_hi | reply_hn | reply_bn | reply_mr |
+   |---|---|---|---|---|---|---|
+   | price | price, cost, kitna | Our packages start at… | हमारे पैकेज… | Hamare packages… | আমাদের… | आमचे… |
+   | general | | Thanks for reaching out! | धन्यवाद! | Thanks! | … | … |
+
+2. **Any other layout** — Claude maps which cells hold which reply
+   type/language (it only returns cell coordinates; reply text is used
+   verbatim, never paraphrased). This handles real-world ORM sheets with
+   mixed columns, notes, and multi-row replies. Missing languages fall back
+   to English (the phone footer is still translated).
 
 ### 4. Vercel
 
-1. Import the repo; set the root directory to `apps/web`.
-2. Add all environment variables from `.env.example`.
-3. Cron jobs in `apps/web/vercel.json` are picked up automatically
+1. [vercel.com/new](https://vercel.com/new) → Import this repo.
+2. Set **Root Directory** to `apps/web` (leave framework/build defaults).
+3. Add environment variables (see `.env.example`; Supabase vars are optional —
+   real defaults are baked in): `ENCRYPTION_KEY`, `CRON_SECRET`,
+   `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`, and after creating the
+   Meta app: `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `META_OAUTH_REDIRECT_URI`.
+4. Cron jobs in `apps/web/vercel.json` are picked up automatically
    (comment sync every 5 min, sheet sync every 6 h).
 
 ### 5. Chrome Extension
 
 ```bash
 cd apps/extension
-VITE_API_URL=https://<your-domain> \
-VITE_SUPABASE_URL=https://<ref>.supabase.co \
-VITE_SUPABASE_ANON_KEY=<anon-key> \
-npm run build
+VITE_API_URL=https://<your-domain> npm run build
 ```
+
+Supabase config is fetched from the backend's `/api/config` at runtime, and
+the backend URL itself can be changed anytime under **Backend settings** in
+the popup's login view — so one build works even if the domain changes.
 
 - **Testing**: chrome://extensions → Developer mode → Load unpacked → `apps/extension/dist`
 - **Publishing**: zip `dist/` and upload to the Chrome Web Store Developer Dashboard.
